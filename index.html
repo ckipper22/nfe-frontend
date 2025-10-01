@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta XML NF-e</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #1e1e1e; color: #f0f0f0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); }
+        h1 { color: #50c9c3; text-align: center; margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        input[type="text"] { width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #444; border-radius: 4px; box-sizing: border-box; background-color: #3a3a3a; color: #f0f0f0; }
+        button { background-color: #50c9c3; color: white; padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; transition: background-color 0.3s; }
+        button:hover { background-color: #3ba09a; }
+        #statusMessage { margin-top: 20px; padding: 10px; border-radius: 4px; text-align: center; }
+        .success { background-color: #28a745; color: white; }
+        .error { background-color: #dc3545; color: white; }
+        #xmlOutput { margin-top: 20px; background-color: #1a1a1a; padding: 15px; border: 1px solid #444; border-radius: 4px; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Consulta de XML da NF-e</h1>
+        <form id="consultForm">
+            <label for="chaveAcesso">Chave de Acesso (44 dígitos):</label>
+            <input type="text" id="chaveAcesso" name="chaveAcesso" maxlength="44" required>
+            <button type="submit" id="submitButton">Consultar XML</button>
+        </form>
+        <div id="statusMessage"></div>
+        <div id="xmlOutput"></div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // === MUDE ESTA LINHA PARA A URL COMPLETA DO SEU BACK-END NO VERCEL! ===
+        // A sua URL é: https://nfe-api-bridge-carlos-kippers-projects.vercel.app
+        const BACKEND_URL = 'https://nfe-api-bridge-carlos-kippers-projects.vercel.app'; 
+        // =========================================================================
+        
+        const form = document.getElementById('consultForm');
+        const chaveAcessoInput = document.getElementById('chaveAcesso');
+        const statusMessage = document.getElementById('statusMessage');
+        const xmlOutput = document.getElementById('xmlOutput');
+        const submitButton = document.getElementById('submitButton');
+
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const chave = chaveAcessoInput.value.trim();
+            
+            if (chave.length !== 44 || !/^\d+$/.test(chave)) {
+                showMessage('A chave de acesso deve ter exatamente 44 dígitos numéricos.', 'error');
+                return;
+            }
+
+            consultarXML(chave);
+        });
+
+        async function consultarXML(chave) {
+            showMessage('Consultando a API... Aguarde.', 'info');
+            submitButton.disabled = true;
+            xmlOutput.textContent = '';
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/buscar-xml`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ chave: chave })
+                });
+
+                if (!response.ok) {
+                    // Tenta ler o JSON de erro do back-end
+                    let errorData;
+                    try {
+                        errorData = await response.json();
+                    } catch (e) {
+                        // Se não for JSON, usa a mensagem de status HTTP
+                        throw new Error(`Erro do servidor: Status ${response.status} ${response.statusText}`);
+                    }
+                    throw new Error(errorData.error || 'Ocorreu um erro desconhecido no servidor.');
+                }
+
+                // Se a resposta for bem-sucedida, o back-end retorna o XML puro (text/xml)
+                const xmlText = await response.text();
+                
+                showMessage('XML baixado com sucesso! (Verifique a validade na área abaixo)', 'success');
+                xmlOutput.textContent = xmlText;
+
+            } catch (error) {
+                console.error('Erro na consulta:', error);
+                showMessage(`Falha na consulta: ${error.message}`, 'error');
+                xmlOutput.textContent = 'Erro ao carregar o XML.';
+            } finally {
+                submitButton.disabled = false;
+            }
+        }
+
+        function showMessage(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = 'statusMessage ' + type;
+        }
+
+        // Inicialização
+        showMessage('Pronto para consultar. Seu back-end está em ' + BACKEND_URL, 'info');
+
+    </script>
+</body>
+</html>
